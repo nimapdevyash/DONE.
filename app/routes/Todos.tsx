@@ -1,6 +1,7 @@
 import * as Api from "~/util/api";
 import type { Route } from "./+types/Todos";
-import { Link } from "react-router";
+import { Form, Link } from "react-router";
+import { useFetcher } from "react-router";
 
 export async function loader() {
   const response = await Api.getAll({
@@ -16,12 +17,30 @@ type todo = {
 };
 
 export default function Todos({ loaderData = [] }: Route.ComponentProps) {
-  // Defensive check: FreeAPI sometimes returns data wrapped differently
-  // Ensure we have an array to map over
-  const todos = Array.isArray(loaderData) ? loaderData : [];
+  const fetcher = useFetcher();
+  const todos = fetcher.data ? fetcher.data : loaderData;
 
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
+      {/* FILTER UI */}
+      <fetcher.Form
+        method="get"
+        action="/"
+        className="flex gap-4 mb-8 items-center bg-white p-4 rounded-xl border border-gray-100"
+      >
+        <span className="text-sm font-bold text-gray-500">Filter:</span>
+        <select
+          name="complete"
+          onChange={(e) => e.currentTarget.form?.submit()} // Auto-submit on change!
+          className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option>All Tasks</option>
+          <option value="true">Completed</option>
+          <option value="false">Pending</option>
+        </select>
+        <input name="query" placeholder="Search..." />
+      </fetcher.Form>
+
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-gray-800 tracking-tight">
           My Tasks
