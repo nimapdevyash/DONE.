@@ -23,6 +23,24 @@ export async function loader({ request }: Route.LoaderArgs) {
   return response.data;
 }
 
+export async function action({ request }: Route.ActionArgs) {
+  const formData = await request.formData();
+
+  const intent = formData.get("intent");
+  const id = formData.get("id");
+
+  if (intent === "toggle") {
+    await Api.toggle({
+      url: `https://api.freeapi.app/api/v1/todos/toggle/status/${id}`,
+    });
+  } else {
+    await Api.remove({
+      url: `https://api.freeapi.app/api/v1/todos/${id}`,
+    });
+  }
+  return;
+}
+
 type todo = {
   title: string;
   _id: string;
@@ -31,63 +49,81 @@ type todo = {
 
 export default function Todos({ loaderData = [] }: Route.ComponentProps) {
   const fetcher = useFetcher();
-  const todos = fetcher.data ? fetcher.data : loaderData ? loaderData : [];
+  const todos = fetcher.data ?? loaderData ?? [];
 
   return (
-    <div className="max-w-2xl mx-auto py-8 px-4">
-      {/* FILTER UI */}
-      <fetcher.Form
-        method="get"
-        className="flex gap-4 mb-8 items-center bg-white p-4 rounded-xl border border-gray-100"
-      >
-        <span className="text-sm font-bold text-gray-500">Filter:</span>
-        <select
-          name="complete"
-          onChange={(e) =>
-            fetcher.submit(e.currentTarget.form, { method: "GET" })
-          }
-          className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option>All Tasks</option>
-          <option value="true">Completed</option>
-          <option value="false">Pending</option>
-        </select>
-        <input name="query" placeholder="Search..." />
-        <button type="submit">Search</button>
-      </fetcher.Form>
-
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 tracking-tight">
-          My Tasks
-        </h2>
-        <span className="bg-blue-100 text-blue-700 text-xs font-semibold px-2.5 py-0.5 rounded-full">
-          {todos.length} Total
+    <div className="max-w-2xl mx-auto py-10 px-6 min-h-screen font-sans">
+      {/* HEADER SECTION */}
+      <div className="flex justify-between items-end mb-8">
+        <div>
+          <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">
+            My Tasks
+          </h2>
+          <p className="text-gray-500 text-sm mt-1">Manage your daily goals</p>
+        </div>
+        <span className="bg-blue-50 text-blue-600 text-xs font-bold px-3 py-1.5 rounded-lg border border-blue-100 shadow-sm">
+          {todos.length} {todos.length === 1 ? "Task" : "Tasks"}
         </span>
       </div>
 
+      {/* FILTER & SEARCH BAR */}
+      <fetcher.Form
+        method="get"
+        className="flex flex-col sm:flex-row gap-3 mb-10 p-2 bg-white rounded-2xl border border-gray-200 shadow-sm"
+      >
+        <div className="relative flex-1">
+          <input
+            name="query"
+            placeholder="Search tasks..."
+            className="w-full pl-4 pr-10 py-3 bg-transparent text-sm outline-none focus:ring-0"
+          />
+        </div>
+
+        <div className="h-8 w-[1px] bg-gray-200 hidden sm:block self-center" />
+
+        <select
+          name="complete"
+          onChange={(e) => fetcher.submit(e.currentTarget.form)}
+          className="bg-transparent px-4 py-3 text-sm font-medium text-gray-600 outline-none cursor-pointer hover:text-blue-600 transition-colors"
+        >
+          <option value="">All Status</option>
+          <option value="true">Completed</option>
+          <option value="false">Pending</option>
+        </select>
+
+        <button
+          type="submit"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold transition-all shadow-md active:scale-95"
+        >
+          Search
+        </button>
+      </fetcher.Form>
+
+      {/* TODO LIST */}
       {todos.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-xl border-2 border-dashed border-gray-200">
-          <p className="text-gray-500">No tasks found. Time to relax!</p>
+        <div className="text-center py-20 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-200">
+          <div className="text-4xl mb-4">🎉</div>
+          <p className="text-gray-500 font-medium">All caught up!</p>
         </div>
       ) : (
-        <ul className="grid gap-3">
-          {todos.map((todo: todo) => (
-            <li key={todo._id} className="group">
-              <Link
-                to={`/${todo._id}`}
-                className="flex items-center p-4 bg-white rounded-xl border border-gray-200 shadow-sm transition-all duration-200 hover:shadow-md hover:border-blue-300 hover:-translate-y-0.5 active:scale-[0.98]"
-              >
-                {/* Visual indicator for completion */}
+        <ul className="space-y-4">
+          {todos.map((todo: any) => (
+            <li
+              key={todo._id}
+              className="group flex items-center justify-between bg-white p-4 rounded-2xl border border-gray-100 shadow-sm transition-all hover:shadow-md hover:border-blue-200"
+            >
+              <div className="flex items-center flex-1">
+                {/* Status Icon */}
                 <div
-                  className={`w-5 h-5 rounded-full border-2 mr-4 flex-shrink-0 flex items-center justify-center transition-colors ${
+                  className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
                     todo.isComplete
                       ? "bg-green-500 border-green-500"
-                      : "border-gray-300 group-hover:border-blue-400"
+                      : "border-gray-200"
                   }`}
                 >
                   {todo.isComplete && (
                     <svg
-                      className="w-3 h-3 text-white"
+                      className="w-3.5 h-3.5 text-white"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -95,38 +131,54 @@ export default function Todos({ loaderData = [] }: Route.ComponentProps) {
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        strokeWidth={3}
+                        strokeWidth={4}
                         d="M5 13l4 4L19 7"
                       />
                     </svg>
                   )}
                 </div>
 
-                <span
-                  className={`text-sm font-medium transition-colors ${
+                <Link
+                  to={`/${todo._id}`}
+                  className={`ml-4 text-sm font-semibold transition-all ${
                     todo.isComplete
                       ? "text-gray-400 line-through"
                       : "text-gray-700 group-hover:text-blue-600"
                   }`}
                 >
                   {todo.title}
-                </span>
+                </Link>
+              </div>
 
-                {/* Right Arrow (Visible on Hover) */}
-                <svg
-                  className="ml-auto w-4 h-4 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </Link>
+              {/* ACTION BUTTONS */}
+              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <fetcher.Form method="post">
+                  <input type="hidden" name="id" value={todo._id} />
+                  <button
+                    type="submit"
+                    name="intent"
+                    id={todo._id}
+                    value="toggle"
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                      todo.isComplete
+                        ? "text-orange-600 bg-orange-50 hover:bg-orange-100"
+                        : "text-green-600 bg-green-50 hover:bg-green-100"
+                    }`}
+                  >
+                    {todo.isComplete ? "Undo" : "Done"}
+                  </button>
+
+                  <button
+                    type="submit"
+                    name="intent"
+                    id={todo._id}
+                    value="remove"
+                    className="ml-2 px-3 py-1.5 rounded-lg text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
+                  >
+                    Delete
+                  </button>
+                </fetcher.Form>
+              </div>
             </li>
           ))}
         </ul>
